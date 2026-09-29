@@ -1,0 +1,35 @@
+# Dependencies / build output
+node_modules/
+dist/
+build/
+coverage/
+
+# Environment and secrets
+.env
+.env.*
+*.pem
+*.key
+
+# Caches, temp files, logs
+.cache/
+.parcel-cache/
+tmp/
+temp/
+*.tmp
+*.log
+npm-debug.log*
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Local tool settings
+.claude/

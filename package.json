@@ -1,0 +1,10 @@
+{
+  "name": "shock-pulse-initial-velocity-calculator-v2",
+  "version": "2.0.0",
+  "private": true,
+  "description": "Browser-only shock pulse to initial velocity calculator (V2 workbench UI).",
+  "scripts": {
+    "test": "node tests/test-profile-time.js && node tests/test-calculations.js && node tests/test-no-direction-ui.js",
+    "start": "python -m http.server 8000"
+  }
+}

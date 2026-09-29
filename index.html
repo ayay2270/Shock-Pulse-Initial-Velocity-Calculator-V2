@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="Convert a half-sine or rectangular shock pulse into an estimated initial velocity and a solver-ready acceleration profile." />
+  <title>Shock Pulse Workbench — Initial Velocity Calculator V2</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%235C6B35'/%3E%3Cpath d='M5 24h4c3 0 4-15 7-15s4 15 7 15h4' fill='none' stroke='%23FBF8F2' stroke-width='2.6' stroke-linecap='round'/%3E%3C/svg%3E" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+  <script src="calculations.js" defer></script>
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <header class="page-head">
+    <h1>Shock Pulse Workbench</h1>
+    <p>Drag the handles on the waveform or edit the values. Results update as you edit.</p>
+  </header>
+
+  <main class="workbench">
+    <form class="card controls" id="controls" novalidate aria-label="Pulse parameters">
+      <fieldset class="ctl ctl-shape">
+        <legend>Pulse Shape</legend>
+        <div class="segmented">
+          <label class="seg">
+            <input type="radio" name="shape" value="half-sine" checked />
+            <span><svg viewBox="0 0 36 16" aria-hidden="true"><path d="M2 14.5C8 14.5 10 2 18 2s10 12.5 16 12.5"/></svg>Half-sine</span>
+          </label>
+          <label class="seg">
+            <input type="radio" name="shape" value="rectangular" />
+            <span><svg viewBox="0 0 36 16" aria-hidden="true"><path d="M2 14.5V3h32v11.5"/></svg>Rectangular</span>
+          </label>
+        </div>
+      </fieldset>
+
+      <div class="ctl">
+        <label for="peak">Peak</label>
+        <div class="field" id="field-peak">
+          <input id="peak" type="number" value="20" min="0" step="0.5" inputmode="decimal" aria-describedby="err-peak" />
+          <span class="unit">G</span>
+        </div>
+        <p class="err" id="err-peak"></p>
+      </div>
+
+      <div class="ctl">
+        <label for="duration">Duration T</label>
+        <div class="field" id="field-duration">
+          <input id="duration" type="number" value="7.00" min="0" step="0.1" inputmode="decimal" aria-describedby="err-duration" />
+          <span class="unit">ms</span>
+        </div>
+        <p class="err" id="err-duration"></p>
+      </div>
+
+      <div class="ctl">
+        <label for="dt">Time Step dt</label>
+        <div class="field" id="field-dt">
+          <input id="dt" type="number" value="0.0001" min="0" step="0.0001" inputmode="decimal" aria-describedby="err-dt" />
+          <span class="unit">s</span>
+        </div>
+        <p class="err" id="err-dt"></p>
+      </div>
+
+      <p class="units">Units: N·mm·s·tonne</p>
+    </form>
+
+    <section class="card plot-card" aria-labelledby="plot-title">
+      <h2 id="plot-title" class="sr-only">Acceleration vs time</h2>
+      <div class="plot" id="plot">
+        <canvas id="wave" tabindex="0" role="img" aria-label="Acceleration versus time"></canvas>
+        <div class="handle" id="peak-handle" role="slider" tabindex="0" aria-label="Peak acceleration" aria-valuemin="0.5" aria-valuenow="20" aria-valuetext="20 G"></div>
+        <div class="tag" id="peak-tag" aria-hidden="true">Peak <b id="peak-tag-v">20</b> G</div>
+        <div class="handle" id="dur-handle" role="slider" tabindex="0" aria-label="Pulse duration" aria-valuemin="0.1" aria-valuenow="7" aria-valuetext="7.00 ms"></div>
+        <div class="tag" id="dur-tag" aria-hidden="true">T = <span id="dur-tag-v">7.00</span> ms</div>
+        <div class="area-label" id="area-label" aria-hidden="true"><span>Area = ΔV</span><b id="area-v">0.874 m/s</b></div>
+        <div class="readout" id="readout" aria-hidden="true"></div>
+        <p class="plot-msg" id="plot-msg" role="alert"></p>
+      </div>
+    </section>
+
+    <section class="results" aria-labelledby="results-title">
+      <h2 id="results-title" class="sr-only">Results</h2>
+      <article class="card result">
+        <h3>Peak acceleration</h3>
+        <p class="value"><output id="r-peak">196 133</output><span class="u">mm/s²</span></p>
+        <p class="sub" id="r-peak-sub">20 G × 9.80665 m/s²</p>
+      </article>
+      <svg class="flow" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h13M13 7l5 5-5 5"/></svg>
+      <article class="card result">
+        <h3>Integrated velocity change</h3>
+        <p class="value"><output id="r-dv">0.874</output><span class="u">m/s</span></p>
+        <p class="sub">ΔV = ∫ a dt</p>
+        <p class="sub small" id="r-dv-formula">(half-sine: 2 a<sub>peak</sub> T / π)</p>
+      </article>
+      <svg class="flow" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h13M13 7l5 5-5 5"/></svg>
+      <article class="card result primary" aria-live="polite">
+        <h3>Estimated initial velocity</h3>
+        <p class="value"><output id="r-v0">874.0</output><span class="u">mm/s</span></p>
+        <p class="sub">starting estimate</p>
+      </article>
+    </section>
+  </main>
+
+  <div class="drawer" id="drawer">
+    <div class="drawer-bar" role="tablist" aria-label="Profile data, export and engineering note">
+      <button type="button" class="drawer-toggle" id="drawer-toggle" aria-expanded="false" aria-controls="drawer-body" aria-label="Open panel">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+      </button>
+      <button role="tab" id="tab-profile" data-tab="profile" aria-controls="panel-profile" aria-selected="false">Profile Data</button>
+      <span class="sep" aria-hidden="true"></span>
+      <button role="tab" id="tab-export" data-tab="export" aria-controls="panel-export" aria-selected="false" tabindex="-1">Export</button>
+      <span class="sep" aria-hidden="true"></span>
+      <button role="tab" id="tab-note" data-tab="note" aria-controls="panel-note" aria-selected="false" tabindex="-1">Engineering Note</button>
+    </div>
+
+    <div class="drawer-body" id="drawer-body">
+      <section role="tabpanel" id="panel-profile" aria-labelledby="tab-profile" hidden>
+        <dl class="meta">
+          <div><dt>Data points</dt><dd id="meta-points">71</dd></div>
+          <div><dt>dt</dt><dd id="meta-dt">0.0001 s</dd></div>
+          <div><dt>Pulse</dt><dd id="meta-pulse">Half-sine · 20 G · 7.00 ms</dd></div>
+        </dl>
+        <div class="table-wrap" tabindex="0" aria-label="Profile table">
+          <table>
+            <thead><tr><th scope="col">Time (s)</th><th scope="col">Acceleration (mm/s²)</th></tr></thead>
+            <tbody id="profile-body"></tbody>
+          </table>
+        </div>
+        <p class="panel-foot" id="table-foot">Includes pulse endpoint</p>
+      </section>
+
+      <section role="tabpanel" id="panel-export" aria-labelledby="tab-export" hidden>
+        <div class="exports">
+          <button type="button" class="export" id="copy-table">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg>
+            <span><strong>Copy Profile Table</strong><small>Two columns, tab-separated — paste into Excel</small></span>
+          </button>
+          <button type="button" class="export" data-export="csv">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>
+            <span><strong>Export CSV</strong><small>shock_profile.csv · Time_ms, Acceleration_mm_s2</small></span>
+          </button>
+          <button type="button" class="export" data-export="lsdyna">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3h7l4 4v14H7zM14 3v4h4M10 13h5M10 17h5"/></svg>
+            <span><strong>Export LS-DYNA Curve</strong><small>shock_profile_lsdyna.k · *DEFINE_CURVE · s, mm/s²</small></span>
+          </button>
+        </div>
+        <p class="panel-foot" id="export-status" role="status" aria-live="polite"></p>
+      </section>
+
+      <section role="tabpanel" id="panel-note" aria-labelledby="tab-note" hidden>
+        <div class="note">
+          <p>The estimated initial velocity is an energy-equivalent <strong>starting estimate</strong> derived from the pulse area. It does not guarantee that a simulation will reproduce this pulse.</p>
+          <p>The actual response depends on:</p>
+          <ul><li>Stiffness</li><li>Mass</li><li>Contact</li><li>Damping</li><li>EPE / foam behavior</li><li>Structural response</li></ul>
+          <p>For impact / drop models, use it as the starting initial velocity and correlate the resulting pulse. For base-excitation models, apply the acceleration profile directly; an initial velocity is not required.</p>
+        </div>
+      </section>
+    </div>
+  </div>
+</body>
+</html>
