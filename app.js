@@ -8,7 +8,7 @@
   const $ = (s) => document.querySelector(s);
 
   const el = {
-    peak: $('#peak'), duration: $('#duration'), dt: $('#dt'),
+    peak: $('#peak'), duration: $('#duration'), durationUnit: $('#duration-unit'), dt: $('#dt'),
     plot: $('#plot'), canvas: $('#wave'), readout: $('#readout'), msg: $('#plot-msg'),
     peakHandle: $('#peak-handle'), durHandle: $('#dur-handle'),
     peakTag: $('#peak-tag'), durTag: $('#dur-tag'), areaLabel: $('#area-label'),
@@ -45,11 +45,37 @@
   const shape = () => document.querySelector('input[name="shape"]:checked').value;
   const SHAPE_NAME = { 'half-sine': 'Half-sine', rectangular: 'Rectangular' };
 
+  /* Duration unit: shift the decimal exponent of the typed string instead of multiplying,
+     so "7" ms and "0.007" s parse to the identical double. */
+  function shiftDecimal(text, exp) {
+    const t = String(text).trim();
+    return t === '' ? NaN : Number(`${t}e${exp}`);
+  }
+  function durationSeconds() {
+    return el.durationUnit.value === 'ms' ? shiftDecimal(el.duration.value, -3) : Number(el.duration.value);
+  }
+  function durationMs() {
+    return el.durationUnit.value === 'ms' ? Number(el.duration.value) : shiftDecimal(el.duration.value, 3);
+  }
+  function writeDurationMs(ms) {
+    const text = fixed(ms, 2);
+    el.duration.value = el.durationUnit.value === 'ms' ? text : String(shiftDecimal(text, -3));
+  }
+  function onUnitChange() {
+    const prev = el.durationUnit.value === 'ms' ? 's' : 'ms';
+    const v = el.duration.value;
+    if (v.trim() !== '' && Number.isFinite(Number(v))) {
+      el.duration.value = String(shiftDecimal(v, prev === 'ms' ? -3 : 3));
+    }
+    el.duration.step = el.durationUnit.value === 'ms' ? '0.1' : '0.0001';
+    compute();
+  }
+
   function payload() {
     return {
       dt_s: Number(el.dt.value),
       peak_g: Number(el.peak.value),
-      duration_seconds: Number(el.duration.value) / 1000,
+      duration_seconds: durationSeconds(),
       pulse_shape: shape()
     };
   }
@@ -321,7 +347,7 @@
   function setDurationMs(ms) {
     let [lo, hi] = durationBoundsMs();
     if (frozen) hi = Math.min(hi, Math.floor((scale.xMax * 0.98) / 0.1) * 0.1);
-    el.duration.value = fixed(clamp(snap(ms, 0.1), lo, Math.max(lo, hi)), 2);
+    writeDurationMs(clamp(snap(ms, 0.1), lo, Math.max(lo, hi)));
     compute();
   }
 
@@ -360,7 +386,7 @@
   });
   el.durHandle.addEventListener('keydown', (e) => {
     const step = e.shiftKey ? 1 : 0.1;
-    const cur = Number(el.duration.value) || 0;
+    const cur = durationMs() || 0;
     if (e.key === 'ArrowRight' || e.key === 'ArrowUp') { e.preventDefault(); setDurationMs(cur + step); }
     if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') { e.preventDefault(); setDurationMs(cur - step); }
   });
@@ -486,7 +512,8 @@
 
   function twoColumnRows(r, separator) {
     const formatTime = profileTimeFormatter(r);
-    const lines = [`Time(s)${separator}Acceleration(mm/s²)`];
+    // Data rows only (no header): pasted directly into a curve profile.
+    const lines = [];
     r.profile.forEach((point) => {
       lines.push(`${formatTime(point.time_s)}${separator}${trimmed(point.acceleration_mm_s2, 2)}`);
     });
@@ -539,6 +566,7 @@
 
   /* ---------- wiring ---------- */
   [el.peak, el.duration, el.dt].forEach((f) => f.addEventListener('input', compute));
+  el.durationUnit.addEventListener('change', onUnitChange);
   document.querySelectorAll('input[name="shape"]').forEach((f) => f.addEventListener('change', compute));
   new ResizeObserver(() => draw()).observe(el.plot);
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(draw);
